@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GenAI Prompt Library</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg:#0f0f13;--surface:#1a1a24;--surface2:#22222f;--border:#2e2e42;
+    --accent:#7c6af7;--accent2:#a78bfa;--accent-glow:rgba(124,106,247,0.15);
+    --text:#e8e8f0;--text-muted:#888898;--green:#34d399;--red:#f87171;
+    --yellow:#fbbf24;--blue:#60a5fa;--orange:#fb923c;--pink:#f472b6;--teal:#2dd4bf;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:18px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+  .logo{display:flex;align-items:center;gap:10px;font-size:1.2rem;font-weight:700;}
+  .logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),#c084fc);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+  .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--green);margin-left:4px;flex-shrink:0;transition:background 0.3s;}
+  .sync-dot.offline{background:var(--red);}
+  .sync-dot.syncing{background:var(--yellow);animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .header-actions{display:flex;gap:10px;}
+
+  .btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:0.85rem;font-weight:600;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s;}
+  .btn-primary{background:var(--accent);color:#fff;}
+  .btn-primary:hover{background:#6b5ce7;transform:translateY(-1px);}
+  .btn-ghost{background:var(--surface2);color:var(--text-muted);border:1px solid var(--border);}
+  .btn-ghost:hover{color:var(--text);border-color:var(--accent);}
+  .btn-danger{background:rgba(248,113,113,0.15);color:var(--red);border:1px solid rgba(248,113,113,0.3);}
+  .btn-danger:hover{background:rgba(248,113,113,0.25);}
+  .btn-sm{padding:5px 10px;font-size:0.78rem;}
+
+  .app{display:flex;min-height:calc(100vh - 61px);}
+
+  .sidebar{width:220px;min-width:220px;background:var(--surface);border-right:1px solid var(--border);padding:20px 14px;display:flex;flex-direction:column;gap:6px;}
+  .sidebar-label{font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);padding:8px 10px 4px;}
+  .cat-btn{padding:8px 12px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:0.88rem;text-align:left;display:flex;align-items:center;gap:8px;transition:all 0.12s;width:100%;}
+  .cat-btn:hover{background:var(--surface2);color:var(--text);}
+  .cat-btn.active{background:var(--accent-glow);color:var(--accent2);font-weight:600;}
+  .cat-count{margin-left:auto;font-size:0.72rem;background:var(--surface2);padding:1px 6px;border-radius:10px;color:var(--text-muted);}
+
+  .main{flex:1;padding:24px 28px;}
+  .controls{display:flex;gap:12px;margin-bottom:20px;align-items:center;}
+  .search-wrap{flex:1;position:relative;}
+  .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none;}
+  .search-input{width:100%;padding:10px 14px 10px 36px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.9rem;outline:none;transition:border-color 0.15s;}
+  .search-input::placeholder{color:var(--text-muted);}
+  .search-input:focus{border-color:var(--accent);}
+  .sort-select{padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.85rem;outline:none;cursor:pointer;}
+  .results-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .results-count{font-size:0.82rem;color:var(--text-muted);}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px;transition:border-color 0.15s,box-shadow 0.15s;position:relative;overflow:hidden;}
+  .card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--cat-color,var(--accent));border-radius:14px 14px 0 0;}
+  .card:hover{border-color:var(--accent);box-shadow:0 0 20px var(--accent-glow);}
+  .card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+  .card-title{font-size:1rem;font-weight:700;line-height:1.3;}
+  .card-fav{background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;padding:2px;transition:color 0.15s;flex-shrink:0;}
+  .card-fav.starred{color:var(--yellow);}
+  .card-fav:hover{color:var(--yellow);}
+  .card-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .badge{padding:3px 9px;border-radius:20px;font-size:0.72rem;font-weight:600;border:1px solid;}
+  .card-body{background:var(--surface2);border-radius:8px;padding:12px;font-size:0.82rem;line-height:1.6;color:var(--text-muted);max-height:120px;overflow:hidden;position:relative;white-space:pre-wrap;word-break:break-word;}
+  .card-body::after{content:'';position:absolute;bottom:0;left:0;right:0;height:30px;background:linear-gradient(transparent,var(--surface2));}
+  .card-tags{display:flex;flex-wrap:wrap;gap:6px;}
+  .tag{padding:2px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;font-size:0.72rem;color:var(--text-muted);}
+  .card-actions{display:flex;gap:8px;margin-top:4px;}
+
+  .loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:300;}
+  .spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading-text{color:var(--text-muted);font-size:0.9rem;}
+
+  .error-banner{background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);padding:14px 20px;border-radius:10px;margin-bottom:20px;font-size:0.88rem;line-height:1.5;}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;gap:18px;}
+  .modal-title{font-size:1.2rem;font-weight:700;}
+  .modal-close{margin-left:auto;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.3rem;line-height:1;}
+  .modal-close:hover{color:var(--text);}
+  .modal-header{display:flex;align-items:center;gap:12px;}
+  label{font-size:0.82rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:6px;}
+  input[type=text],textarea,select{width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.88rem;outline:none;transition:border-color 0.15s;font-family:inherit;}
+  input[type=text]:focus,textarea:focus,select:focus{border-color:var(--accent);}
+  textarea{resize:vertical;min-height:140px;line-height:1.6;}
+  .form-row{display:flex;gap:14px;}
+  .form-row>*{flex:1;}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:4px;}
+  .prompt-full{background:var(--surface2);border-radius:10px;padding:16px;font-size:0.88rem;line-height:1.7;white-space:pre-wrap;word-break:break-word;color:var(--text);max-height:55vh;overflow-y:auto;}
+  .var-highlight{color:var(--accent2);font-weight:600;}
+
+  .empty{text-align:center;padding:80px 20px;color:var(--text-muted);}
+  .empty-icon{font-size:3rem;margin-bottom:12px;}
+  .empty h3{color:var(--text);margin-bottom:8px;}
+
+  .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:1px solid var(--green);color:var(--green);padding:10px 20px;border-radius:10px;font-size:0.85rem;font-weight:600;opacity:0;transition:all 0.25s;pointer-events:none;z-index:999;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  ::-webkit-scrollbar{width:6px;height:6px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:6px;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--accent);}
+  .hidden{display:none!important;}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Loading your library…</div>
+</div>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">✦</div>
+    GenAI Prompt Library
+    <div class="sync-dot syncing" id="syncDot" title="Connecting…"></div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-ghost" onclick="importPrompts()">⬆ Import</button>
+    <button class="btn btn-ghost" onclick="exportPrompts()">⬇ Export</button>
+    <button class="btn btn-ghost btn-sm" onclick="seedStarters()">🌱 Seed starters</button>
+    <button class="btn btn-primary" onclick="openAddModal()">＋ New Prompt</button>
+  </div>
+</header>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-label">Categories</div>
+    <button class="cat-btn active" onclick="filterCat(this,'All')"><span>🗂</span>All<span class="cat-count" id="count-All">0</span></button>
+    <button class="cat-btn" onclick="filterCat(this,'⭐ Starred')"><span>⭐</span>Starred<span class="cat-count" id="count-Starred">0</span></button>
+    <div class="sidebar-label" style="margin-top:8px">By Topic</div>
+    <button class="cat-btn" onclick="filterCat(this,'Writing')"><span>✍️</span>Writing<span class="cat-count" id="count-Writing">0</span></button>
+    <button class="cat-btn" onclick="filterCat(this,'Coding')"><span>💻</span>Coding<span class="cat-count" id="count-Coding">0</span></button>
+    <button class="cat-btn" onclick="filterCat(this,'Research')"><span>🔬</span>Research<span class="cat-count" id="count-Research">0</span></button>
+    <button class="cat-btn" onclick="filterCat(this,'Business')"><span>💼</span>Business<span class="cat-count" id="count-Business">0</span></button>
+    <button class="cat-btn" onclick="filterCat(this,'Productivity')"><span>⚡</span>Productivity<span class="cat-count" id="count-Productivity">0</span></button>
+    <button class="cat-btn" onclick="filterCat(this,'Creative')"><span>🎨</span>Creative<span class="cat-count" id="count-Creative">0</span></button>
+    <button class="cat-btn" onclick="filterCat(this,'Analysis')"><span>📊</span>Analysis<span class="cat-count" id="count-Analysis">0</span></button>
+    <button class="cat-btn" onclick="filterCat(this,'Other')"><span>📌</span>Other<span class="cat-count" id="count-Other">0</span></button>
+  </aside>
+
+  <main class="main">
+    <div id="errorBanner" class="error-banner hidden"></div>
+    <div class="controls">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" type="text" id="searchInput" placeholder="Search prompts, tags, descriptions…" oninput="renderAll()">
+      </div>
+      <select class="sort-select" id="sortSelect" onchange="renderAll()">
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+        <option value="alpha">A → Z</option>
+        <option value="starred">Starred first</option>
+      </select>
+    </div>
+    <div class="results-bar">
+      <span class="results-count" id="resultsCount">Loading…</span>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="empty hidden" id="emptyState">
+      <div class="empty-icon">🔭</div>
+      <h3>No prompts found</h3>
+      <p>Try a different search, or click <strong>＋ New Prompt</strong> to add one.<br>First time? Hit <strong>🌱 Seed starters</strong> to load 15 example prompts.</p>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Add / Edit Modal -->
+<div class="modal-overlay hidden" id="addModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">New Prompt</div>
+      <button class="modal-close" onclick="closeModal('addModal')">✕</button>
+    </div>
+    <div><label>Title *</label><input type="text" id="f-title" placeholder="Give your prompt a clear name"></div>
+    <div class="form-row">
+      <div>
+        <label>Category *</label>
+        <select id="f-category">
+          <option value="Writing">✍️ Writing</option>
+          <option value="Coding">💻 Coding</option>
+          <option value="Research">🔬 Research</option>
+          <option value="Business">💼 Business</option>
+          <option value="Productivity">⚡ Productivity</option>
+          <option value="Creative">🎨 Creative</option>
+          <option value="Analysis">📊 Analysis</option>
+          <option value="Other">📌 Other</option>
+        </select>
+      </div>
+      <div><label>Model hint (optional)</label><input type="text" id="f-model" placeholder="e.g. Claude Opus, GPT-4o, Any"></div>
+    </div>
+    <div>
+      <label>Prompt * <span style="font-weight:400;color:var(--text-muted)">— use {variable} for placeholders</span></label>
+      <textarea id="f-prompt" placeholder="Write your prompt here. Use {topic}, {tone}, {audience} etc."></textarea>
+    </div>
+    <div><label>Notes (optional)</label><input type="text" id="f-notes" placeholder="Tips, context, best practices…"></div>
+    <div><label>Tags (comma-separated)</label><input type="text" id="f-tags" placeholder="e.g. summarize, email, concise"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('addModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="savePrompt()">Save Prompt</button>
+    </div>
+  </div>
+</div>
+
+<!-- View Modal -->
+<div class="modal-overlay hidden" id="viewModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="viewTitle"></div>
+      <button class="modal-close" onclick="closeModal('viewModal')">✕</button>
+    </div>
+    <div id="viewMeta"></div>
+    <div><label>Prompt</label><div class="prompt-full" id="viewPrompt"></div></div>
+    <div id="viewNotes"></div>
+    <div id="viewTags"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" onclick="deleteFromView()">🗑 Delete</button>
+      <button class="btn btn-ghost" onclick="editFromView()">✏️ Edit</button>
+      <button class="btn btn-primary" onclick="copyFromView()">⎘ Copy Prompt</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="importInput" accept=".json" class="hidden" onchange="handleImport(event)">
+
+<script>
+// ── Your Supabase credentials ─────────────────────────────────────
+const SUPABASE_URL = 'https://qfbtlyhkkuwwcbqxawdx.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_GdGSsAyN5zg0zetFHrYPSA_Z0-PgJOy';
+
+// ── Init ──────────────────────────────────────────────────────────
+const { createClient } = window.supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let prompts = [];
+let currentCat = 'All';
+let editingId = null;
+let viewingId = null;
+
+const CAT_COLORS = {
+  Writing:'#60a5fa',Coding:'#34d399',Research:'#a78bfa',
+  Business:'#fbbf24',Productivity:'#fb923c',Creative:'#f472b6',
+  Analysis:'#2dd4bf',Other:'#94a3b8'
+};
+
+function uid(){ return Math.random().toString(36).slice(2)+Date.now().toString(36); }
+
+// ── Boot ──────────────────────────────────────────────────────────
+async function boot() {
+  const ok = await loadPrompts();
+  document.getElementById('loadingOverlay').classList.add('hidden');
+  if (!ok) showError('⚠ Could not connect to Supabase. Make sure you ran the SQL to create the prompts table, then refresh.');
+}
+
+async function loadPrompts() {
+  setSyncDot('syncing');
+  try {
+    const { data, error } = await db.from('prompts').select('*').order('created', { ascending: false });
+    if (error) throw error;
+    prompts = data || [];
+    setSyncDot('online');
+    renderAll();
+    return true;
+  } catch(e) {
+    console.error('Supabase error:', e);
+    setSyncDot('offline');
+    renderAll();
+    return false;
+  }
+}
+
+// ── CRUD ──────────────────────────────────────────────────────────
+async function savePrompt() {
+  const title  = document.getElementById('f-title').value.trim();
+  const prompt = document.getElementById('f-prompt').value.trim();
+  if (!title || !prompt) { alert('Title and Prompt are required!'); return; }
+
+  const data = {
+    id:       editingId || uid(),
+    title,
+    category: document.getElementById('f-category').value,
+    model:    document.getElementById('f-model').value.trim(),
+    prompt,
+    notes:    document.getElementById('f-notes').value.trim(),
+    tags:     document.getElementById('f-tags').value.split(',').map(t=>t.trim()).filter(Boolean),
+    starred:  editingId ? (prompts.find(p=>p.id===editingId)?.starred||false) : false,
+    created:  editingId ? (prompts.find(p=>p.id===editingId)?.created||Date.now()) : Date.now()
+  };
+
+  setSyncDot('syncing');
+  const { error } = editingId
+    ? await db.from('prompts').update(data).eq('id', editingId)
+    : await db.from('prompts').insert([data]);
+
+  if (error) { showToast('❌ Save failed: '+error.message); setSyncDot('offline'); return; }
+  setSyncDot('online');
+  await loadPrompts();
+  closeModal('addModal');
+  showToast(editingId ? '✓ Prompt updated!' : '✓ Prompt saved!');
+}
+
+async function toggleStar(id, e) {
+  e.stopPropagation();
+  const p = prompts.find(x=>x.id===id);
+  if (!p) return;
+  const { error } = await db.from('prompts').update({ starred: !p.starred }).eq('id', id);
+  if (!error) { p.starred = !p.starred; renderAll(); }
+}
+
+async function deleteFromView() {
+  if (!confirm('Delete this prompt? Cannot be undone.')) return;
+  const { error } = await db.from('prompts').delete().eq('id', viewingId);
+  if (error) { showToast('❌ Delete failed'); return; }
+  prompts = prompts.filter(p=>p.id!==viewingId);
+  renderAll();
+  closeModal('viewModal');
+  showToast('🗑 Prompt deleted');
+}
+
+// ── Seed ──────────────────────────────────────────────────────────
+async function seedStarters() {
+  if (!confirm('Add 15 starter prompts to your library?')) return;
+  const { error } = await db.from('prompts').insert(getStarterPrompts());
+  if (error) { showToast('❌ Seed failed: '+error.message); return; }
+  await loadPrompts();
+  showToast('🌱 15 starter prompts added!');
+}
+
+// ── Render ────────────────────────────────────────────────────────
+function renderAll() {
+  const q    = document.getElementById('searchInput').value.toLowerCase();
+  const sort = document.getElementById('sortSelect').value;
+
+  const catCounts = {};
+  let starredCount = 0;
+  prompts.forEach(p => {
+    catCounts[p.category] = (catCounts[p.category]||0)+1;
+    if (p.starred) starredCount++;
+  });
+  ['All','Writing','Coding','Research','Business','Productivity','Creative','Analysis','Other'].forEach(c=>{
+    const el = document.getElementById('count-'+c);
+    if (el) el.textContent = c==='All' ? prompts.length : (catCounts[c]||0);
+  });
+  const sEl = document.getElementById('count-Starred');
+  if (sEl) sEl.textContent = starredCount;
+
+  let filtered = prompts.filter(p=>{
+    const matchCat = currentCat==='All'||(currentCat==='⭐ Starred'?p.starred:p.category===currentCat);
+    const matchQ   = !q||[p.title,p.prompt,p.notes,...(p.tags||[])].join(' ').toLowerCase().includes(q);
+    return matchCat && matchQ;
+  });
+
+  filtered.sort((a,b)=>{
+    if(sort==='newest') return b.created-a.created;
+    if(sort==='oldest') return a.created-b.created;
+    if(sort==='alpha')  return a.title.localeCompare(b.title);
+    if(sort==='starred')return (b.starred?1:0)-(a.starred?1:0);
+    return 0;
+  });
+
+  const grid  = document.getElementById('grid');
+  const empty = document.getElementById('emptyState');
+  document.getElementById('resultsCount').textContent = `${filtered.length} prompt${filtered.length!==1?'s':''}`;
+
+  if (filtered.length===0) { grid.innerHTML=''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  grid.innerHTML = filtered.map(cardHTML).join('');
+}
+
+function cardHTML(p) {
+  const color = CAT_COLORS[p.category]||'#94a3b8';
+  const tags  = (p.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('');
+  return `<div class="card" style="--cat-color:${color}">
+    <div class="card-header">
+      <div class="card-title">${esc(p.title)}</div>
+      <button class="card-fav ${p.starred?'starred':''}" onclick="toggleStar('${p.id}',event)">★</button>
+    </div>
+    <div class="card-meta">
+      <span class="badge" style="color:${color};border-color:${color}30;background:${color}15">${p.category}</span>
+      ${p.model?`<span class="badge" style="color:var(--text-muted);border-color:var(--border);background:var(--surface2)">${esc(p.model)}</span>`:''}
+    </div>
+    <div class="card-body">${esc(p.prompt).substring(0,200)}${p.prompt.length>200?'…':''}</div>
+    ${tags?`<div class="card-tags">${tags}</div>`:''}
+    <div class="card-actions">
+      <button class="btn btn-ghost btn-sm" onclick="viewPrompt('${p.id}')">👁 View</button>
+      <button class="btn btn-primary btn-sm" onclick="copyPrompt('${p.id}')">⎘ Copy</button>
+    </div>
+  </div>`;
+}
+
+function esc(s=''){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function filterCat(btn,cat){
+  currentCat=cat;
+  document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAll();
+}
+
+function copyPrompt(id){
+  const p=prompts.find(x=>x.id===id);
+  if(!p)return;
+  navigator.clipboard.writeText(p.prompt).then(()=>showToast('✓ Copied to clipboard!'));
+}
+
+function viewPrompt(id){
+  const p=prompts.find(x=>x.id===id);
+  if(!p)return;
+  viewingId=id;
+  const color=CAT_COLORS[p.category]||'#94a3b8';
+  document.getElementById('viewTitle').textContent=p.title;
+  document.getElementById('viewMeta').innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap">
+    <span class="badge" style="color:${color};border-color:${color}30;background:${color}15">${p.category}</span>
+    ${p.model?`<span class="badge" style="color:var(--text-muted);border-color:var(--border);background:var(--surface2)">${esc(p.model)}</span>`:''}
+  </div>`;
+  document.getElementById('viewPrompt').innerHTML=esc(p.prompt).replace(/\{([^}]+)\}/g,'<span class="var-highlight">{$1}</span>');
+  document.getElementById('viewNotes').innerHTML=p.notes?`<div><label>Notes</label><div style="font-size:0.85rem;color:var(--text-muted);padding:8px 0">${esc(p.notes)}</div></div>`:'';
+  document.getElementById('viewTags').innerHTML=p.tags?.length?`<div class="card-tags">${p.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>`:'';
+  openModal('viewModal');
+}
+function copyFromView(){copyPrompt(viewingId);}
+function editFromView(){closeModal('viewModal');openAddModal(viewingId);}
+
+function openAddModal(editId=null){
+  editingId=editId;
+  const p=editId?prompts.find(x=>x.id===editId):null;
+  document.getElementById('modalTitle').textContent=p?'Edit Prompt':'New Prompt';
+  document.getElementById('f-title').value=p?.title||'';
+  document.getElementById('f-category').value=p?.category||'Writing';
+  document.getElementById('f-model').value=p?.model||'';
+  document.getElementById('f-prompt').value=p?.prompt||'';
+  document.getElementById('f-notes').value=p?.notes||'';
+  document.getElementById('f-tags').value=p?.tags?.join(', ')||'';
+  openModal('addModal');
+  setTimeout(()=>document.getElementById('f-title').focus(),100);
+}
+
+function exportPrompts(){
+  const blob=new Blob([JSON.stringify(prompts,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`prompt-library-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  showToast('⬇ Library exported!');
+}
+function importPrompts(){document.getElementById('importInput').click();}
+async function handleImport(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    try{
+      const imported=JSON.parse(ev.target.result);
+      if(!Array.isArray(imported))throw new Error();
+      const newItems=imported.filter(p=>!prompts.find(x=>x.id===p.id));
+      if(newItems.length===0){showToast('No new prompts found.');return;}
+      const{error}=await db.from('prompts').insert(newItems);
+      if(error)throw error;
+      await loadPrompts();
+      showToast(`⬆ Imported ${newItems.length} prompt${newItems.length!==1?'s':''}!`);
+    }catch{alert('Invalid JSON file.');}
+    e.target.value='';
+  };
+  reader.readAsText(file);
+}
+
+function setSyncDot(state){
+  const d=document.getElementById('syncDot');
+  if(!d)return;
+  d.className='sync-dot'+(state==='online'?'':state==='offline'?' offline':' syncing');
+  d.title=state==='online'?'Connected':state==='offline'?'Disconnected':'Syncing…';
+}
+function showError(msg){
+  const el=document.getElementById('errorBanner');
+  el.textContent=msg;el.classList.remove('hidden');
+}
+function openModal(id){document.getElementById(id).classList.remove('hidden');}
+function closeModal(id){document.getElementById(id).classList.add('hidden');}
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeModal('addModal');closeModal('viewModal');}
+});
+['addModal','viewModal'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal(id);});
+});
+
+// ── Starter prompts ───────────────────────────────────────────────
+function getStarterPrompts(){
+  const now=Date.now();
+  return [
+    {id:uid(),title:"Deep Research Synthesis",category:"Research",model:"Claude Opus",prompt:"You are a rigorous research analyst. Thoroughly investigate the following topic and produce a structured synthesis:\n\nTopic: {topic}\n\nYour output should include:\n1. A concise executive summary (3-5 sentences)\n2. Key findings broken into clear themes\n3. Competing perspectives or debates in the field\n4. Gaps in current knowledge\n5. Practical implications\n6. Suggested further reading\n\nCite reasoning explicitly. Be balanced and critical, not just descriptive.",tags:["research","synthesis","analysis"],notes:"Great for deep dives into unfamiliar subjects.",starred:true,created:now-86400000*14},
+    {id:uid(),title:"Email Rewriter — Clear & Confident",category:"Writing",model:"Any",prompt:"Rewrite the following email to be clear, confident, and professional. Remove filler words, passive voice, and unnecessary hedging. Preserve the core message and intent.\n\nTone: {tone}\nAudience: {audience}\n\nOriginal email:\n---\n{email_text}\n---\n\nReturn only the rewritten email, no commentary.",tags:["email","writing","professional"],notes:"Set tone to 'direct' or 'warm' depending on context.",starred:true,created:now-86400000*12},
+    {id:uid(),title:"Code Review — Senior Engineer",category:"Coding",model:"Claude Sonnet",prompt:"Act as a senior software engineer doing a thorough code review. Review the following code and identify:\n\n1. Bugs or logic errors\n2. Security vulnerabilities\n3. Performance issues\n4. Readability and maintainability problems\n5. Missing edge cases\n6. Opportunities to simplify\n\nLanguage/Framework: {language}\n\n```\n{code}\n```\n\nFor each issue, explain WHY it's a problem and suggest a concrete fix. Be direct.",tags:["code","review","security","engineering"],notes:"Works well on any language.",starred:true,created:now-86400000*10},
+    {id:uid(),title:"Decision Framework — Pros/Cons/Risks",category:"Business",model:"Any",prompt:"I need help thinking through a decision clearly.\n\nDecision to make: {decision}\nContext: {context}\nConstraints/non-negotiables: {constraints}\n\nPlease:\n1. Identify the core trade-offs\n2. List pros, cons, and hidden risks for each option\n3. Flag any assumptions I might be making\n4. Suggest what additional information would change the answer\n5. Give me your recommended path and why\n\nBe direct. Don't hedge excessively.",tags:["decision","strategy","business","analysis"],notes:"The more context you give, the better.",starred:false,created:now-86400000*9},
+    {id:uid(),title:"Meeting Notes → Action Items",category:"Productivity",model:"Any",prompt:"Convert the following raw meeting notes into a structured summary.\n\nMeeting notes:\n---\n{notes}\n---\n\nOutput format:\n**Meeting Summary** (2-3 sentences)\n\n**Key Decisions Made:**\n- ...\n\n**Action Items:**\n| Owner | Task | Due Date |\n|-------|------|----------|\n\n**Open Questions / Parking Lot:**\n- ...\n\nBe concise. If owner or due date is unclear, flag it as [TBD].",tags:["meeting","productivity","notes","summary"],notes:"Paste messy notes in — gets them clean in seconds.",starred:false,created:now-86400000*8},
+    {id:uid(),title:"Explain Like I'm 12",category:"Research",model:"Any",prompt:"Explain the following concept to me as if I'm a curious 12-year-old who is smart but has no background knowledge in this area. Use simple language, a relatable analogy, and a concrete real-world example.\n\nConcept: {concept}\n\nAfter the simple explanation, give me a one-sentence 'grown-up' version I can use to sound smart at dinner.",tags:["explainer","learning","analogy","simplify"],notes:"Swap '12' for 'CEO' to adjust the framing.",starred:false,created:now-86400000*7},
+    {id:uid(),title:"Blog Post Outline + Hook",category:"Writing",model:"Any",prompt:"Create a compelling blog post outline on the following topic.\n\nTopic: {topic}\nTarget audience: {audience}\nDesired tone: {tone}\nApprox. word count: {word_count}\n\nProvide:\n1. Five possible headline options (punchy, avoid clickbait)\n2. A recommended headline with reasoning\n3. An opening hook paragraph (3-5 sentences)\n4. A full outline with H2/H3 sections and bullet-point notes\n5. A suggested call-to-action\n\nMake it feel like something a real expert would write, not generic AI content.",tags:["blog","writing","content","SEO"],notes:"Adjust tone to 'conversational', 'authoritative', or 'playful'.",starred:false,created:now-86400000*6},
+    {id:uid(),title:"SQL Query Generator",category:"Coding",model:"Claude Sonnet",prompt:"Write a SQL query to accomplish the following task.\n\nDatabase type: {db_type}\nTask description: {task}\n\nSchema context:\n{schema}\n\nRequirements:\n- Write clean, readable SQL with comments\n- Prefer CTEs over nested subqueries for readability\n- Include an explanation of what the query does\n- Note any performance considerations\n- If the request is ambiguous, state your assumptions",tags:["sql","database","query","data"],notes:"Paste schema as CREATE TABLE statements or just describe the tables.",starred:false,created:now-86400000*5},
+    {id:uid(),title:"Devil's Advocate",category:"Analysis",model:"Claude Opus",prompt:"Challenge the following idea or plan as a rigorous devil's advocate. Don't list generic risks — identify specific weaknesses in THIS argument.\n\nMy idea/plan/belief:\n{idea}\n\nPlease:\n1. Identify the 3 strongest counter-arguments\n2. Point out flawed assumptions\n3. Give me the best version of the opposing view\n4. Suggest what would have to be true for my idea to be wrong\n\nBe intellectually honest. Don't soften the critique.",tags:["critical thinking","analysis","strategy"],notes:"Pair with a follow-up asking Claude to steelman your original position.",starred:true,created:now-86400000*4},
+    {id:uid(),title:"Brand Voice Style Guide",category:"Business",model:"Any",prompt:"Create a concise brand voice style guide based on the following information.\n\nBrand name: {brand_name}\nWhat we do: {description}\nTarget audience: {audience}\nBrand personality (adjectives): {personality}\nExample of content we love: {example_good}\nExample of content we hate: {example_bad}\n\nThe style guide should cover:\n1. Voice and tone (with DO/DON'T examples)\n2. Vocabulary preferences\n3. Sentence structure guidance\n4. Content length norms\n5. How to handle humor, formality, and jargon",tags:["brand","marketing","copywriting","business"],notes:"example_good and example_bad are the most important fields.",starred:false,created:now-86400000*3},
+    {id:uid(),title:"Brainstorm 20 Ideas (No Filter)",category:"Creative",model:"Any",prompt:"Generate 20 ideas for {topic}.\n\nRules:\n- No filtering for feasibility — include wild, unconventional ideas\n- Range from obvious to surprising to completely left-field\n- Each idea in one sentence\n- No repeats or near-repeats\n- Don't hedge or apologize for strange ideas\n\nAfter the list, pick your top 3 and briefly explain why they stand out.",tags:["brainstorm","creative","ideation","ideas"],notes:"Wild ideas unlock better ones.",starred:false,created:now-86400000*2},
+    {id:uid(),title:"Summarize Long Document",category:"Productivity",model:"Any",prompt:"Summarize the following document. Tailor the summary for: {audience}\n\nSummary format: {format}\n(Options: executive summary, bullet points, narrative, TL;DR)\n\nDocument:\n---\n{document_text}\n---\n\nRequirements:\n- Capture ALL key points\n- Flag any ambiguities or things needing follow-up\n- Keep it under {max_words} words\n- Use plain language",tags:["summarize","document","reading","productivity"],notes:"Works on reports, papers, legal docs, transcripts.",starred:false,created:now-86400000*1},
+    {id:uid(),title:"Python Script — Quick Utility",category:"Coding",model:"Claude Sonnet",prompt:"Write a clean Python script to accomplish the following task.\n\nTask: {task}\nInput: {input_description}\nOutput: {output_description}\n\nRequirements:\n- Use Python 3.10+\n- Clear docstrings and inline comments\n- Handle errors gracefully with helpful messages\n- Add a simple CLI interface using argparse if appropriate\n- Keep dependencies minimal (prefer stdlib)\n\nAfter the script, include how to run it and any dependencies to install.",tags:["python","script","coding","automation"],notes:"Swap argparse for click if you prefer.",starred:false,created:now-86400000*1},
+    {id:uid(),title:"Performance Review Self-Assessment",category:"Business",model:"Any",prompt:"Help me write a compelling, honest self-assessment for my performance review.\n\nMy role: {role}\nKey accomplishments this period: {accomplishments}\nChallenges I faced: {challenges}\nAreas I want to grow in: {growth_areas}\nMy manager's priorities: {manager_priorities}\n\nWrite a self-assessment that:\n- Leads with impact, not just activity\n- Uses specific examples and quantifies where possible\n- Acknowledges challenges honestly without undermining myself\n- Ties contributions to team/company goals\n- Frames growth areas as ambition, not weakness\n\nTone: confident but not arrogant.",tags:["HR","career","review","professional"],notes:"Fill in as much specificity as you can.",starred:false,created:now-86400000*1},
+    {id:uid(),title:"Visualize Data Insights",category:"Analysis",model:"Claude Sonnet",prompt:"Analyze the following data and extract key insights.\n\nContext/goal: {context}\n\nData:\n---\n{data}\n---\n\nPlease:\n1. Identify the 3-5 most important patterns or trends\n2. Note any anomalies or outliers worth investigating\n3. Suggest how this data could be visualized most effectively\n4. State what you'd want to know next to deepen the analysis\n5. Give a one-paragraph executive summary\n\nAssume the audience is data-literate but not specialists.",tags:["data","analysis","insights","visualization"],notes:"Paste in CSV, JSON, or a table. Great for survey data.",starred:false,created:now}
+  ];
+}
+
+boot();
+</script>
+</body>
+</html>
