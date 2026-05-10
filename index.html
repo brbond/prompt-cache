@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GenAI Prompt Library</title>
+<title>GenAI Prompt Cache</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
@@ -35,26 +35,35 @@
 
   .app{display:flex;min-height:calc(100vh - 61px);}
 
-  .sidebar{width:220px;min-width:220px;background:var(--surface);border-right:1px solid var(--border);padding:20px 14px;display:flex;flex-direction:column;gap:6px;}
+  .sidebar{width:220px;min-width:220px;background:var(--surface);border-right:1px solid var(--border);padding:20px 14px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;}
   .sidebar-label{font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);padding:8px 10px 4px;}
-  .cat-btn{padding:8px 12px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:0.88rem;text-align:left;display:flex;align-items:center;gap:8px;transition:all 0.12s;width:100%;}
+  .cat-btn{padding:8px 12px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:0.88rem;text-align:left;display:flex;align-items:center;gap:8px;transition:all 0.15s;}
   .cat-btn:hover{background:var(--surface2);color:var(--text);}
   .cat-btn.active{background:var(--accent-glow);color:var(--accent2);font-weight:600;}
   .cat-count{margin-left:auto;font-size:0.72rem;background:var(--surface2);padding:1px 6px;border-radius:10px;color:var(--text-muted);}
+  .tag-btn{padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;font-size:0.78rem;transition:all 0.15s;margin:2px;}
+  .tag-btn:hover{background:var(--surface2);color:var(--text);border-color:var(--accent);}
+  .tag-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
 
-  .main{flex:1;padding:24px 28px;}
-  .controls{display:flex;gap:12px;margin-bottom:20px;align-items:center;}
-  .search-wrap{flex:1;position:relative;}
-  .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none;}
-  .search-input{width:100%;padding:10px 14px 10px 36px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.9rem;outline:none;transition:border-color 0.15s;}
+  .main{flex:1;padding:24px 28px;display:flex;flex-direction:column;}
+  .controls{display:flex;gap:12px;margin-bottom:20px;align-items:stretch;flex-wrap:wrap;}
+  .search-wrap{flex:1;min-width:300px;position:relative;display:flex;align-items:center;}
+  .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none;font-size:1.1rem;}
+  .search-input{width:100%;padding:11px 14px 11px 40px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.9rem;outline:none;transition:border-color 0.2s;}
   .search-input::placeholder{color:var(--text-muted);}
-  .search-input:focus{border-color:var(--accent);}
-  .sort-select{padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.85rem;outline:none;cursor:pointer;}
-  .results-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .search-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,106,247,0.1);}
+  .sort-select{padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.85rem;outline:none;cursor:pointer;white-space:nowrap;}
+  .sort-select:focus{border-color:var(--accent);}
+  .results-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;}
   .results-count{font-size:0.82rem;color:var(--text-muted);}
+  .filter-tags-container{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+  .filter-tags-label{font-size:0.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;}
+  .tag-filters{display:flex;flex-wrap:wrap;gap:4px;}
+  .clear-filters{padding:4px 8px;background:rgba(248,113,113,0.15);color:var(--red);border:1px solid rgba(248,113,113,0.3);border-radius:6px;cursor:pointer;font-size:0.75rem;font-weight:600;transition:all 0.15s;}
+  .clear-filters:hover{background:rgba(248,113,113,0.25);}
 
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px;}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px;transition:border-color 0.15s,box-shadow 0.15s;position:relative;overflow:hidden;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px;flex:1;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px;transition:border-color 0.15s,box-shadow 0.15s;position:relative;}
   .card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--cat-color,var(--accent));border-radius:14px 14px 0 0;}
   .card:hover{border-color:var(--accent);box-shadow:0 0 20px var(--accent-glow);}
   .card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
@@ -67,7 +76,8 @@
   .card-body{background:var(--surface2);border-radius:8px;padding:12px;font-size:0.82rem;line-height:1.6;color:var(--text-muted);max-height:120px;overflow:hidden;position:relative;white-space:pre-wrap;word-break:break-word;}
   .card-body::after{content:'';position:absolute;bottom:0;left:0;right:0;height:30px;background:linear-gradient(transparent,var(--surface2));}
   .card-tags{display:flex;flex-wrap:wrap;gap:6px;}
-  .tag{padding:2px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;font-size:0.72rem;color:var(--text-muted);}
+  .tag{padding:2px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;font-size:0.72rem;color:var(--text-muted);cursor:pointer;transition:all 0.15s;}
+  .tag:hover{border-color:var(--accent);color:var(--accent);}
   .card-actions{display:flex;gap:8px;margin-top:4px;}
 
   .loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:300;}
@@ -84,7 +94,7 @@
   .modal-close:hover{color:var(--text);}
   .modal-header{display:flex;align-items:center;gap:12px;}
   label{font-size:0.82rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:6px;}
-  input[type=text],textarea,select{width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.88rem;outline:none;transition:border-color 0.15s;font-family:inherit;}
+  input[type=text],textarea,select{width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.88rem;outline:none;transition:border-color 0.2s;}
   input[type=text]:focus,textarea:focus,select:focus{border-color:var(--accent);}
   textarea{resize:vertical;min-height:140px;line-height:1.6;}
   .form-row{display:flex;gap:14px;}
@@ -97,7 +107,7 @@
   .empty-icon{font-size:3rem;margin-bottom:12px;}
   .empty h3{color:var(--text);margin-bottom:8px;}
 
-  .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:1px solid var(--green);color:var(--green);padding:10px 20px;border-radius:10px;font-size:0.85rem;font-weight:600;opacity:0;transition:all 0.25s;pointer-events:none;z-index:999;}
+  .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:1px solid var(--green);color:var(--green);padding:10px 20px;border-radius:10px;font-size:0.85rem;opacity:0;transition:opacity 0.3s,transform 0.3s;z-index:400;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
   ::-webkit-scrollbar{width:6px;height:6px;}
@@ -117,7 +127,7 @@
 <header>
   <div class="logo">
     <div class="logo-icon">✦</div>
-    GenAI Prompt Library
+    GenAI Prompt Cache
     <div class="sync-dot syncing" id="syncDot" title="Connecting…"></div>
   </div>
   <div class="header-actions">
@@ -160,6 +170,11 @@
     </div>
     <div class="results-bar">
       <span class="results-count" id="resultsCount">Loading…</span>
+      <div class="filter-tags-container" id="filterTagsContainer" class="hidden">
+        <span class="filter-tags-label">Filtering by:</span>
+        <div class="tag-filters" id="activeTagFilters"></div>
+        <button class="clear-filters" onclick="clearTagFilters()">✕ Clear</button>
+      </div>
     </div>
     <div class="grid" id="grid"></div>
     <div class="empty hidden" id="emptyState">
@@ -243,6 +258,7 @@ let prompts = [];
 let currentCat = 'All';
 let editingId = null;
 let viewingId = null;
+let selectedTags = new Set();
 
 const CAT_COLORS = {
   Writing:'#60a5fa',Coding:'#34d399',Research:'#a78bfa',
@@ -333,6 +349,22 @@ async function seedStarters() {
   showToast('🌱 15 starter prompts added!');
 }
 
+// ── Tag Filtering ─────────────────────────────────────────────────
+function toggleTagFilter(tag, e) {
+  e.stopPropagation();
+  if (selectedTags.has(tag)) {
+    selectedTags.delete(tag);
+  } else {
+    selectedTags.add(tag);
+  }
+  renderAll();
+}
+
+function clearTagFilters() {
+  selectedTags.clear();
+  renderAll();
+}
+
 // ── Render ────────────────────────────────────────────────────────
 function renderAll() {
   const q    = document.getElementById('searchInput').value.toLowerCase();
@@ -354,7 +386,8 @@ function renderAll() {
   let filtered = prompts.filter(p=>{
     const matchCat = currentCat==='All'||(currentCat==='⭐ Starred'?p.starred:p.category===currentCat);
     const matchQ   = !q||[p.title,p.prompt,p.notes,...(p.tags||[])].join(' ').toLowerCase().includes(q);
-    return matchCat && matchQ;
+    const matchTags = selectedTags.size === 0 || (p.tags && p.tags.some(t => selectedTags.has(t)));
+    return matchCat && matchQ && matchTags;
   });
 
   filtered.sort((a,b)=>{
@@ -369,6 +402,18 @@ function renderAll() {
   const empty = document.getElementById('emptyState');
   document.getElementById('resultsCount').textContent = `${filtered.length} prompt${filtered.length!==1?'s':''}`;
 
+  // Update tag filter display
+  const filterContainer = document.getElementById('filterTagsContainer');
+  if (selectedTags.size > 0) {
+    filterContainer.classList.remove('hidden');
+    const activeTagsHTML = Array.from(selectedTags).map(t => 
+      `<button class="tag-btn active" onclick="toggleTagFilter('${esc(t)}', event)">✓ ${esc(t)}</button>`
+    ).join('');
+    document.getElementById('activeTagFilters').innerHTML = activeTagsHTML;
+  } else {
+    filterContainer.classList.add('hidden');
+  }
+
   if (filtered.length===0) { grid.innerHTML=''; empty.classList.remove('hidden'); return; }
   empty.classList.add('hidden');
   grid.innerHTML = filtered.map(cardHTML).join('');
@@ -376,7 +421,7 @@ function renderAll() {
 
 function cardHTML(p) {
   const color = CAT_COLORS[p.category]||'#94a3b8';
-  const tags  = (p.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('');
+  const tags  = (p.tags||[]).map(t=>`<span class="tag" onclick="toggleTagFilter('${esc(t)}', event)" title="Click to filter by this tag">${esc(t)}</span>`).join('');
   return `<div class="card" style="--cat-color:${color}">
     <div class="card-header">
       <div class="card-title">${esc(p.title)}</div>
@@ -422,7 +467,7 @@ function viewPrompt(id){
   </div>`;
   document.getElementById('viewPrompt').innerHTML=esc(p.prompt).replace(/\{([^}]+)\}/g,'<span class="var-highlight">{$1}</span>');
   document.getElementById('viewNotes').innerHTML=p.notes?`<div><label>Notes</label><div style="font-size:0.85rem;color:var(--text-muted);padding:8px 0">${esc(p.notes)}</div></div>`:'';
-  document.getElementById('viewTags').innerHTML=p.tags?.length?`<div class="card-tags">${p.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>`:'';
+  document.getElementById('viewTags').innerHTML=p.tags?.length?`<div class="card-tags">${p.tags.map(t=>`<span class="tag" onclick="toggleTagFilter('${esc(t)}', event)" title="Click to filter by this tag">${esc(t)}</span>`).join('')}</div>`:'';
   openModal('viewModal');
 }
 function copyFromView(){copyPrompt(viewingId);}
@@ -446,7 +491,7 @@ function exportPrompts(){
   const blob=new Blob([JSON.stringify(prompts,null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=`prompt-library-${new Date().toISOString().slice(0,10)}.json`;
+  a.download=`prompt-cache-${new Date().toISOString().slice(0,10)}.json`;
   a.click();
   showToast('⬇ Library exported!');
 }
@@ -498,21 +543,21 @@ document.addEventListener('keydown',e=>{
 function getStarterPrompts(){
   const now=Date.now();
   return [
-    {id:uid(),title:"Deep Research Synthesis",category:"Research",model:"Claude Opus",prompt:"You are a rigorous research analyst. Thoroughly investigate the following topic and produce a structured synthesis:\n\nTopic: {topic}\n\nYour output should include:\n1. A concise executive summary (3-5 sentences)\n2. Key findings broken into clear themes\n3. Competing perspectives or debates in the field\n4. Gaps in current knowledge\n5. Practical implications\n6. Suggested further reading\n\nCite reasoning explicitly. Be balanced and critical, not just descriptive.",tags:["research","synthesis","analysis"],notes:"Great for deep dives into unfamiliar subjects.",starred:true,created:now-86400000*14},
-    {id:uid(),title:"Email Rewriter — Clear & Confident",category:"Writing",model:"Any",prompt:"Rewrite the following email to be clear, confident, and professional. Remove filler words, passive voice, and unnecessary hedging. Preserve the core message and intent.\n\nTone: {tone}\nAudience: {audience}\n\nOriginal email:\n---\n{email_text}\n---\n\nReturn only the rewritten email, no commentary.",tags:["email","writing","professional"],notes:"Set tone to 'direct' or 'warm' depending on context.",starred:true,created:now-86400000*12},
-    {id:uid(),title:"Code Review — Senior Engineer",category:"Coding",model:"Claude Sonnet",prompt:"Act as a senior software engineer doing a thorough code review. Review the following code and identify:\n\n1. Bugs or logic errors\n2. Security vulnerabilities\n3. Performance issues\n4. Readability and maintainability problems\n5. Missing edge cases\n6. Opportunities to simplify\n\nLanguage/Framework: {language}\n\n```\n{code}\n```\n\nFor each issue, explain WHY it's a problem and suggest a concrete fix. Be direct.",tags:["code","review","security","engineering"],notes:"Works well on any language.",starred:true,created:now-86400000*10},
-    {id:uid(),title:"Decision Framework — Pros/Cons/Risks",category:"Business",model:"Any",prompt:"I need help thinking through a decision clearly.\n\nDecision to make: {decision}\nContext: {context}\nConstraints/non-negotiables: {constraints}\n\nPlease:\n1. Identify the core trade-offs\n2. List pros, cons, and hidden risks for each option\n3. Flag any assumptions I might be making\n4. Suggest what additional information would change the answer\n5. Give me your recommended path and why\n\nBe direct. Don't hedge excessively.",tags:["decision","strategy","business","analysis"],notes:"The more context you give, the better.",starred:false,created:now-86400000*9},
-    {id:uid(),title:"Meeting Notes → Action Items",category:"Productivity",model:"Any",prompt:"Convert the following raw meeting notes into a structured summary.\n\nMeeting notes:\n---\n{notes}\n---\n\nOutput format:\n**Meeting Summary** (2-3 sentences)\n\n**Key Decisions Made:**\n- ...\n\n**Action Items:**\n| Owner | Task | Due Date |\n|-------|------|----------|\n\n**Open Questions / Parking Lot:**\n- ...\n\nBe concise. If owner or due date is unclear, flag it as [TBD].",tags:["meeting","productivity","notes","summary"],notes:"Paste messy notes in — gets them clean in seconds.",starred:false,created:now-86400000*8},
-    {id:uid(),title:"Explain Like I'm 12",category:"Research",model:"Any",prompt:"Explain the following concept to me as if I'm a curious 12-year-old who is smart but has no background knowledge in this area. Use simple language, a relatable analogy, and a concrete real-world example.\n\nConcept: {concept}\n\nAfter the simple explanation, give me a one-sentence 'grown-up' version I can use to sound smart at dinner.",tags:["explainer","learning","analogy","simplify"],notes:"Swap '12' for 'CEO' to adjust the framing.",starred:false,created:now-86400000*7},
-    {id:uid(),title:"Blog Post Outline + Hook",category:"Writing",model:"Any",prompt:"Create a compelling blog post outline on the following topic.\n\nTopic: {topic}\nTarget audience: {audience}\nDesired tone: {tone}\nApprox. word count: {word_count}\n\nProvide:\n1. Five possible headline options (punchy, avoid clickbait)\n2. A recommended headline with reasoning\n3. An opening hook paragraph (3-5 sentences)\n4. A full outline with H2/H3 sections and bullet-point notes\n5. A suggested call-to-action\n\nMake it feel like something a real expert would write, not generic AI content.",tags:["blog","writing","content","SEO"],notes:"Adjust tone to 'conversational', 'authoritative', or 'playful'.",starred:false,created:now-86400000*6},
-    {id:uid(),title:"SQL Query Generator",category:"Coding",model:"Claude Sonnet",prompt:"Write a SQL query to accomplish the following task.\n\nDatabase type: {db_type}\nTask description: {task}\n\nSchema context:\n{schema}\n\nRequirements:\n- Write clean, readable SQL with comments\n- Prefer CTEs over nested subqueries for readability\n- Include an explanation of what the query does\n- Note any performance considerations\n- If the request is ambiguous, state your assumptions",tags:["sql","database","query","data"],notes:"Paste schema as CREATE TABLE statements or just describe the tables.",starred:false,created:now-86400000*5},
-    {id:uid(),title:"Devil's Advocate",category:"Analysis",model:"Claude Opus",prompt:"Challenge the following idea or plan as a rigorous devil's advocate. Don't list generic risks — identify specific weaknesses in THIS argument.\n\nMy idea/plan/belief:\n{idea}\n\nPlease:\n1. Identify the 3 strongest counter-arguments\n2. Point out flawed assumptions\n3. Give me the best version of the opposing view\n4. Suggest what would have to be true for my idea to be wrong\n\nBe intellectually honest. Don't soften the critique.",tags:["critical thinking","analysis","strategy"],notes:"Pair with a follow-up asking Claude to steelman your original position.",starred:true,created:now-86400000*4},
-    {id:uid(),title:"Brand Voice Style Guide",category:"Business",model:"Any",prompt:"Create a concise brand voice style guide based on the following information.\n\nBrand name: {brand_name}\nWhat we do: {description}\nTarget audience: {audience}\nBrand personality (adjectives): {personality}\nExample of content we love: {example_good}\nExample of content we hate: {example_bad}\n\nThe style guide should cover:\n1. Voice and tone (with DO/DON'T examples)\n2. Vocabulary preferences\n3. Sentence structure guidance\n4. Content length norms\n5. How to handle humor, formality, and jargon",tags:["brand","marketing","copywriting","business"],notes:"example_good and example_bad are the most important fields.",starred:false,created:now-86400000*3},
-    {id:uid(),title:"Brainstorm 20 Ideas (No Filter)",category:"Creative",model:"Any",prompt:"Generate 20 ideas for {topic}.\n\nRules:\n- No filtering for feasibility — include wild, unconventional ideas\n- Range from obvious to surprising to completely left-field\n- Each idea in one sentence\n- No repeats or near-repeats\n- Don't hedge or apologize for strange ideas\n\nAfter the list, pick your top 3 and briefly explain why they stand out.",tags:["brainstorm","creative","ideation","ideas"],notes:"Wild ideas unlock better ones.",starred:false,created:now-86400000*2},
-    {id:uid(),title:"Summarize Long Document",category:"Productivity",model:"Any",prompt:"Summarize the following document. Tailor the summary for: {audience}\n\nSummary format: {format}\n(Options: executive summary, bullet points, narrative, TL;DR)\n\nDocument:\n---\n{document_text}\n---\n\nRequirements:\n- Capture ALL key points\n- Flag any ambiguities or things needing follow-up\n- Keep it under {max_words} words\n- Use plain language",tags:["summarize","document","reading","productivity"],notes:"Works on reports, papers, legal docs, transcripts.",starred:false,created:now-86400000*1},
-    {id:uid(),title:"Python Script — Quick Utility",category:"Coding",model:"Claude Sonnet",prompt:"Write a clean Python script to accomplish the following task.\n\nTask: {task}\nInput: {input_description}\nOutput: {output_description}\n\nRequirements:\n- Use Python 3.10+\n- Clear docstrings and inline comments\n- Handle errors gracefully with helpful messages\n- Add a simple CLI interface using argparse if appropriate\n- Keep dependencies minimal (prefer stdlib)\n\nAfter the script, include how to run it and any dependencies to install.",tags:["python","script","coding","automation"],notes:"Swap argparse for click if you prefer.",starred:false,created:now-86400000*1},
-    {id:uid(),title:"Performance Review Self-Assessment",category:"Business",model:"Any",prompt:"Help me write a compelling, honest self-assessment for my performance review.\n\nMy role: {role}\nKey accomplishments this period: {accomplishments}\nChallenges I faced: {challenges}\nAreas I want to grow in: {growth_areas}\nMy manager's priorities: {manager_priorities}\n\nWrite a self-assessment that:\n- Leads with impact, not just activity\n- Uses specific examples and quantifies where possible\n- Acknowledges challenges honestly without undermining myself\n- Ties contributions to team/company goals\n- Frames growth areas as ambition, not weakness\n\nTone: confident but not arrogant.",tags:["HR","career","review","professional"],notes:"Fill in as much specificity as you can.",starred:false,created:now-86400000*1},
-    {id:uid(),title:"Visualize Data Insights",category:"Analysis",model:"Claude Sonnet",prompt:"Analyze the following data and extract key insights.\n\nContext/goal: {context}\n\nData:\n---\n{data}\n---\n\nPlease:\n1. Identify the 3-5 most important patterns or trends\n2. Note any anomalies or outliers worth investigating\n3. Suggest how this data could be visualized most effectively\n4. State what you'd want to know next to deepen the analysis\n5. Give a one-paragraph executive summary\n\nAssume the audience is data-literate but not specialists.",tags:["data","analysis","insights","visualization"],notes:"Paste in CSV, JSON, or a table. Great for survey data.",starred:false,created:now}
+    {id:uid(),title:"Deep Research Synthesis",category:"Research",model:"Claude Opus",prompt:"You are a rigorous research analyst. Thoroughly investigate the following topic and produce a structured summary with key findings, sources, and actionable insights.\n\nTopic: {topic}\n\nProvide:\n1. Executive summary\n2. Key findings\n3. Supporting evidence\n4. Gaps and limitations\n5. Recommendations",tags:["research","analysis","synthesis"],starred:false,created:now},
+    {id:uid(),title:"Email Rewriter — Clear & Confident",category:"Writing",model:"Any",prompt:"Rewrite the following email to be clear, confident, and professional. Remove filler words, passive voice, and unnecessary details. Keep the core message but make it more direct and impactful.\n\nOriginal email:\n---\n{email}\n---",tags:["email","writing","clarity"],starred:false,created:now},
+    {id:uid(),title:"Code Review — Senior Engineer",category:"Coding",model:"Claude Sonnet",prompt:"Act as a senior software engineer doing a thorough code review. Review the following code and identify:\n1. Bugs or potential issues\n2. Performance concerns\n3. Maintainability problems\n4. Security vulnerabilities\n5. Suggestions for improvement\n\nCode:\n```\n{code}\n```",tags:["code-review","testing","quality"],starred:false,created:now},
+    {id:uid(),title:"Decision Framework — Pros/Cons/Risks",category:"Business",model:"Any",prompt:"I need help thinking through a decision clearly.\n\nDecision to make: {decision}\nContext: {context}\n\nPlease provide:\n1. Pros (realistic benefits)\n2. Cons (real drawbacks)\n3. Risks (what could go wrong)\n4. Mitigations (how to manage risks)\n5. Recommendation with reasoning",tags:["decision","business","framework"],starred:false,created:now},
+    {id:uid(),title:"Meeting Notes → Action Items",category:"Productivity",model:"Any",prompt:"Convert the following raw meeting notes into a structured summary.\n\nMeeting notes:\n---\n{notes}\n---\n\nProvide:\n1. Meeting objective\n2. Key decisions made\n3. Action items with owners and due dates\n4. Open questions\n5. Next steps",tags:["meetings","productivity","organization"],starred:false,created:now},
+    {id:uid(),title:"Explain Like I'm 12",category:"Research",model:"Any",prompt:"Explain the following concept to me as if I'm a curious 12-year-old who is smart but has no background knowledge in this area. Use simple language, relatable examples, and avoid jargon.\n\nConcept: {concept}",tags:["explanation","education","simplification"],starred:false,created:now},
+    {id:uid(),title:"Blog Post Outline + Hook",category:"Writing",model:"Any",prompt:"Create a compelling blog post outline on the following topic.\n\nTopic: {topic}\nTarget audience: {audience}\nDesired length: {length} words\n\nProvide:\n1. A compelling hook/headline\n2. Introduction with problem statement\n3. Main sections (3-5) with key points\n4. Real examples or case studies\n5. Actionable conclusion\n6. Call to action",tags:["writing","content","seo"],starred:false,created:now},
+    {id:uid(),title:"SQL Query Generator",category:"Coding",model:"Claude Sonnet",prompt:"Write a SQL query to accomplish the following task.\n\nDatabase type: {db_type}\nTask description: {task}\nTable schema: {schema}\n\nRequirements:\n- Use proper indexing hints where relevant\n- Include comments\n- Optimize for performance\n- Handle edge cases",tags:["sql","database","backend"],starred:false,created:now},
+    {id:uid(),title:"Devil's Advocate",category:"Analysis",model:"Claude Opus",prompt:"Challenge the following idea or plan as a rigorous devil's advocate. Don't list generic risks — identify specific, plausible failure modes and weaknesses.\n\nIdea/Plan: {idea}\n\nProvide:\n1. Fundamental assumptions being made\n2. Specific ways this could fail\n3. Hidden costs or downsides\n4. Alternative approaches that might be better\n5. Questions that should be answered before proceeding",tags:["analysis","critical-thinking","strategy"],starred:false,created:now},
+    {id:uid(),title:"Brand Voice Style Guide",category:"Business",model:"Any",prompt:"Create a concise brand voice style guide based on the following information.\n\nBrand name: {brand_name}\nWhat we do: {description}\nTarget audience: {audience}\nBrand personality: {personality}\n\nProvide:\n1. Brand voice pillars (3-5)\n2. Tone guidelines (professional/casual/playful/etc.)\n3. Do's and don'ts\n4. Example phrases and language patterns\n5. Writing tips specific to our brand",tags:["branding","marketing","writing"],starred:false,created:now},
+    {id:uid(),title:"Brainstorm 20 Ideas (No Filter)",category:"Creative",model:"Any",prompt:"Generate 20 ideas for {topic}.\n\nRules:\n- No filtering for feasibility — include wild, unconventional ideas\n- Mix practical and blue-sky thinking\n- Be specific (not generic)\n- Push beyond obvious answers\n- Include a brief reason for each",tags:["brainstorming","creativity","ideation"],starred:false,created:now},
+    {id:uid(),title:"Summarize Long Document",category:"Productivity",model:"Any",prompt:"Summarize the following document. Tailor the summary for: {audience}\n\nSummary format: {format}\n(Options: executive summary, bullet points, paragraph, email)\n\nDocument:\n---\n{document}\n---\n\nEnsure the summary captures the most important points for the intended audience.",tags:["summarization","productivity","reading"],starred:false,created:now},
+    {id:uid(),title:"Python Script — Quick Utility",category:"Coding",model:"Claude Sonnet",prompt:"Write a clean Python script to accomplish the following task.\n\nTask: {task}\nInput: {input_description}\nOutput: {output_description}\n\nRequirements:\n- Include error handling\n- Add helpful comments\n- Use type hints\n- Include a usage example\n- Handle edge cases",tags:["python","scripting","automation"],starred:false,created:now},
+    {id:uid(),title:"Performance Review Self-Assessment",category:"Business",model:"Any",prompt:"Help me write a compelling, honest self-assessment for my performance review.\n\nMy role: {role}\nKey accomplishments: {accomplishments}\nChallenges faced: {challenges}\nGrowth areas: {growth}\n\nWrite a balanced assessment that:\n1. Highlights genuine contributions\n2. Acknowledges challenges and learning\n3. Shows self-awareness\n4. Demonstrates growth\n5. Sets goals for next period",tags:["career","self-assessment","performance"],starred:false,created:now},
+    {id:uid(),title:"Visualize Data Insights",category:"Analysis",model:"Claude Sonnet",prompt:"Analyze the following data and extract key insights.\n\nContext/goal: {context}\n\nData:\n---\n{data}\n---\n\nProvide:\n1. Key patterns and trends\n2. Outliers and anomalies\n3. Correlations\n4. What the data suggests\n5. Limitations of this data\n6. Recommended visualizations\n7. Next questions to explore",tags:["data-analysis","insights","reporting"],starred:false,created:now}
   ];
 }
 
